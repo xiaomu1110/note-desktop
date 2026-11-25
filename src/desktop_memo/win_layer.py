@@ -194,9 +194,21 @@ def acquire_single_instance() -> bool:
 # ---------------------------------------------------------------- 开机自启
 
 
+def is_frozen() -> bool:
+    """是否运行在 PyInstaller 打出的 exe 里。"""
+    return bool(getattr(sys, "frozen", False))
+
+
 def _run_command() -> str:
-    """要写进注册表的启动命令：用 pythonw 跑 run.pyw，不弹黑框。"""
+    """要写进注册表的启动命令。
+
+    打包后：直接就是 exe 自己的路径。
+    源码运行：用 pythonw 跑 run.pyw，不弹黑框。
+    """
     from pathlib import Path
+
+    if is_frozen():
+        return f'"{Path(sys.executable).resolve()}"'
 
     root = Path(__file__).resolve().parent.parent.parent
     launcher = root / "run.pyw"

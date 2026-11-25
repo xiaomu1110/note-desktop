@@ -278,20 +278,23 @@ def _launch_process() -> bool:
     import subprocess
     from pathlib import Path
 
-    # 优先用项目根目录的 run.pyw（双击可用的那个），退回到 -m 方式
-    pkg = Path(__file__).resolve()
-    project_root = pkg.parents[2]
-    launcher = project_root / "run.pyw"
-    exe = Path(sys.executable)
-    pythonw = exe.with_name("pythonw.exe")
-    if not pythonw.exists():
-        pythonw = exe
-
-    if launcher.exists():
-        cmd = [str(pythonw), str(launcher)]
-        cwd = str(project_root)
+    if getattr(sys, "frozen", False):
+        # 打包环境：MCP 可能是被 exe 拉起的，直接重启 exe 自己
+        cmd = [str(Path(sys.executable).resolve())]
+        cwd = str(Path(sys.executable).resolve().parent)
     else:
-        cmd = [str(pythonw), "-m", "desktop_memo"]
+        # 源码环境：优先用 run.pyw（双击可用的那个）
+        pkg = Path(__file__).resolve()
+        project_root = pkg.parents[2]
+        launcher = project_root / "run.pyw"
+        exe = Path(sys.executable)
+        pythonw = exe.with_name("pythonw.exe")
+        if not pythonw.exists():
+            pythonw = exe
+        if launcher.exists():
+            cmd = [str(pythonw), str(launcher)]
+        else:
+            cmd = [str(pythonw), "-m", "desktop_memo"]
         cwd = str(project_root)
 
     kwargs: dict = {}

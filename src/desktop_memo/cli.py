@@ -10,14 +10,20 @@ from __future__ import annotations
 
 import argparse
 
+from . import __version__
+
+PROG = "note-desktop"
+
 
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行参数解析器。"""
     parser = argparse.ArgumentParser(
-        prog="desktop-memo",
-        description="桌面备忘录 —— 一个轻量的本地桌面备忘录工具",
+        prog=PROG,
+        description="常驻桌面、可拖动的极简便签（零第三方依赖）",
     )
-    parser.add_argument("-v", "--version", action="version", version="desktop-memo 0.1.0")
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"{PROG} {__version__}"
+    )
     parser.add_argument(
         "--hidden",
         action="store_true",

@@ -1,10 +1,25 @@
-# 桌面备忘录
+# note-desktop
 
 常驻桌面、可拖动的极简便签。**零第三方依赖**，只用 Python 标准库（Tkinter / ctypes / sqlite3）。
 
 ![卡片实机效果](docs/card_mica_3x.png)
 
 ![架构](docs/arch.png)
+
+## 安装
+
+**下载即用**（不需要 Python）：到 [Releases](https://github.com/xiaomu1110/note-desktop/releases)
+下载 `note-desktop.exe`，双击运行。
+
+**从源码**（需要 Python 3.10+）：
+
+```bash
+git clone https://github.com/xiaomu1110/note-desktop.git
+cd note-desktop
+python run.pyw
+```
+
+完整安装说明、MCP 与技能配置见 **[docs/install.md](docs/install.md)**。
 
 ## 特性
 

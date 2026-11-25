@@ -84,5 +84,18 @@ def db_path() -> Path:
 
 
 def asset_path(name: str) -> Path:
-    """包内静态资源路径（图标等）。"""
+    """静态资源路径（图标等）。
+
+    三种运行形态都要能找到：
+    1. PyInstaller 打包：资源被解到 sys._MEIPASS
+    2. pip 安装：资源在包的 assets/ 里
+    3. 源码运行（src layout）：同上，因为图标就放在包内
+    """
+    import sys
+
+    mei = getattr(sys, "_MEIPASS", None)
+    if mei:
+        bundled = Path(mei) / "desktop_memo" / "assets" / name
+        if bundled.exists():
+            return bundled
     return Path(__file__).with_name("assets") / name

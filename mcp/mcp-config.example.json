@@ -1,0 +1,25 @@
+# MCP 客户端配置模板
+#
+# 把下面这段合并到你 MCP 客户端的配置文件里：
+#   - Claude Desktop:  %APPDATA%\Claude\claude_desktop_config.json
+#   - Hermes Agent:    ~/.hermes/config.yaml     （见 docs/integration.md）
+#   - Cursor / Cline 等：按其文档的 mcpServers 字段
+#
+# 需要改的地方只有两处：
+#   1. command 指向你本机的 python.exe（要 Python 3.10+）
+#   2. PYTHONPATH 指向本仓库的 src 目录
+#
+# 如果用 Release 里的 note-desktop.exe，就不需要 Python，也不需要 PYTHONPATH——
+#     直接去掉 env 段即可（exe 自带 MCP 服务端）。
+
+{
+  "mcpServers": {
+    "note-desktop": {
+      "command": "python",
+      "args": ["-m", "desktop_memo.mcp_server"],
+      "env": {
+        "PYTHONPATH": "D:\\path\\to\\note-desktop\\src"
+      }
+    }
+  }
+}

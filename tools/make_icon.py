@@ -1,10 +1,10 @@
-"""生成托盘图标 assets/memo.ico（多尺寸），只在需要时手动跑一次。"""
+"""生成托盘图标 src/desktop_memo/assets/memo.ico（多尺寸），只在需要时手动跑一次。"""
 
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-OUT = Path(__file__).resolve().parents[1] / "assets" / "memo.ico"
+OUT = Path(__file__).resolve().parents[1] / "src" / "desktop_memo" / "assets" / "memo.ico"
 SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
 
