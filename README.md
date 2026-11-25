@@ -16,6 +16,8 @@
 - **开机自启**：托盘右键菜单里一键开关
 - **自动保存**：每改一次立即写盘，强杀进程也不丢
 - **右下角拖拽缩放手柄**：可自由调整卡片大小
+- **本地 API + MCP**：Hermes Agent 等外部程序可以远程增删事项、开关程序与自启
+  （见 [docs/api.md](docs/api.md)）
 
 ## 运行
 
@@ -59,17 +61,19 @@ desktop-memo
 
 ```
 src/desktop_memo/
-├── app.py         组装层：Tk 主循环 + 托盘事件轮询 + 生命周期
+├── app.py         组装层：Tk 主循环 + 托盘轮询 + API 线程桥接
 ├── widget.py      表现层 + 交互层：纯 Canvas 自绘的卡片
 ├── win_layer.py   Win32 绑定：DWM 圆角、工具窗口、DPI、单实例、开机自启
 ├── tray.py        托盘图标：ctypes + Shell_NotifyIcon，独立线程
+├── api.py         本地 HTTP API（标准库 http.server，token 鉴权）
+├── mcp_server.py  MCP stdio 服务端（手写 JSON-RPC，零依赖）
 ├── store.py       存储层：SQLite 读写 + 窗口位置记忆
-├── config.py      路径与常量
+├── config.py      路径、常量、API token
 ├── cli.py         命令行入口
 └── assets/        托盘图标
 ```
 
-设计细节见 [docs/README.md](docs/README.md)。
+设计细节见 [docs/README.md](docs/README.md) 与 [docs/api.md](docs/api.md)。
 
 ## 为什么没有做"透出壁纸的云母"
 

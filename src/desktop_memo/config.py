@@ -25,6 +25,46 @@ AUTOSTART_NAME = "DesktopMemo"
 # 单实例互斥体名
 MUTEX_NAME = "Local\\DesktopMemo-SingleInstance"
 
+# 本地 API 服务：只绑回环地址，端口固定方便 MCP 配置
+API_HOST = "127.0.0.1"
+API_PORT = 52741
+API_TOKEN_FILE = "api_token"
+API_TOKEN_ENV = "DESKTOP_MEMO_TOKEN"
+
+
+def _token_path() -> Path:
+    return data_dir() / API_TOKEN_FILE
+
+
+def get_api_token(create: bool = True) -> str:
+    """读取（必要时生成）本地 API 的访问令牌。
+
+    令牌放在数据目录里，权限交给 NTFS 默认的当前用户 ACL。
+    环境变量 DESKTOP_MEMO_TOKEN 优先，便于测试和临时覆盖。
+    """
+    import secrets
+
+    override = os.environ.get(API_TOKEN_ENV)
+    if override:
+        return override
+    path = _token_path()
+    try:
+        if path.exists():
+            token = path.read_text(encoding="utf-8").strip()
+            if token:
+                return token
+    except OSError:
+        pass
+    if not create:
+        return ""
+    token = secrets.token_urlsafe(32)
+    try:
+        path.write_text(token, encoding="utf-8")
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    return token
+
 
 def data_dir() -> Path:
     """返回应用数据目录，不存在时创建。"""
