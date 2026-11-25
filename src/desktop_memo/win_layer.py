@@ -114,22 +114,11 @@ class _WINCOMPATTRDATA(ctypes.Structure):
     ]
 
 
-class _MARGINS(ctypes.Structure):
-    _fields_ = [
-        ("cxLeftWidth", ctypes.c_int),
-        ("cxRightWidth", ctypes.c_int),
-        ("cyTopHeight", ctypes.c_int),
-        ("cyBottomHeight", ctypes.c_int),
-    ]
-
-
-_DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+_DWMWA_NCRENDERING_POLICY = 2
 _DWMWA_WINDOW_CORNER_PREFERENCE = 33
-_DWMWA_SYSTEMBACKDROP_TYPE = 38
-_DWMWA_BORDER_COLOR = 34
-_DWMSBT_TRANSIENTWINDOW = 3   # 亚克力
 _DWMWCP_ROUNDSMALL = 3
 _DWMWCP_DONOTROUND = 1
+_DWMNCRP_ENABLED = 2
 
 
 def _dwm_set(hwnd: int, attr: int, value: int) -> bool:
@@ -149,55 +138,35 @@ def _dwm_set(hwnd: int, attr: int, value: int) -> bool:
 
 
 def enable_mica(hwnd: int, tint: int = 0xC8F8F6F4) -> bool:
-    """给窗口铺上云母玻璃背景。
+    """给窗口加 DWM 圆角与阴影，视觉上接近原生玻璃卡片。
 
-    踩过的坑（实测结论，别再换回去）：
-    - SetWindowCompositionAttribute（老 P/Invoke 亚克力）会整块盖住 Tk 的绘制，
-      文字全看不见，所以**不能用**。
-    - DwmSetWindowAttribute(SYSTEMBACKDROP_TYPE) 与 Tk 共存良好，但必须同时
-      DwmExtendFrameIntoClientArea(-1,-1,-1,-1)，把整个客户区交给 DWM 绘制。
-    - 客户区交给 DWM 后，Tk 的底板色要设成透明色键，否则会盖住云母。
+    **不再铺 SYSTEMBACKDROP、也不调 DwmExtendFrameIntoClientArea。**
 
-    返回是否成功。失败时调用方应保留不透明底板。
+    实测结论（见 widget.py 顶部注释）：
+    想让 DWM 的云母/亚克力透出来，客户区必须交给 DWM 绘制，
+    同时 Tk 底板要用 -transparentcolor 抠成透明。而透明色键会**强制关闭
+    文字的抗锯齿**（中间灰度占比从 55.2% 掉到 0.9%），字形严重像素化。
+    二者在 Windows + Tk 上不可兼得，这里选择保住文字清晰度。
+
+    现在只保留不影响内容绘制的部分：圆角、边框色、阴影。
     """
     if not _IS_WINDOWS or not hwnd:
         return False
     try:
-        dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
-        # 1) 整个客户区交给 DWM
-        margins = _MARGINS(-1, -1, -1, -1)
-        hr = dwmapi.DwmExtendFrameIntoClientArea(
-            wintypes.HWND(hwnd), ctypes.byref(margins)
-        )
-        if hr != 0:
-            return False
-        # 2) 背景材质：3 = Acrylic（即便系统不支持 Mica 也有玻璃质感）
-        ok = _dwm_set(hwnd, _DWMWA_SYSTEMBACKDROP_TYPE, _DWMSBT_TRANSIENTWINDOW)
-        if not ok:
-            ok = _dwm_set(hwnd, _DWMWA_SYSTEMBACKDROP_TYPE, _DWMSBT_MAINWINDOW)
-        # 3) 圆角与边框交给 DWM，边缘更干净
-        _dwm_set(hwnd, _DWMWA_WINDOW_CORNER_PREFERENCE, _DWMWCP_ROUNDSMALL)
-        _dwm_set(hwnd, _DWMWA_BORDER_COLOR, 0x00000000)
-        _dwm_set(hwnd, _DWMWA_USE_IMMERSIVE_DARK_MODE, 0)
+        # 无边框窗口默认没有阴影，显式打开
+        _dwm_set(hwnd, _DWMWA_NCRENDERING_POLICY, _DWMNCRP_ENABLED)
+        # 圆角交给 DWM，与自绘的小圆角对齐
+        ok = _dwm_set(hwnd, _DWMWA_WINDOW_CORNER_PREFERENCE, _DWMWCP_ROUNDSMALL)
         return bool(ok)
     except Exception:
         return False
 
 
 def disable_mica(hwnd: int) -> None:
-    """撤掉背景材质，恢复普通不透明窗口。"""
+    """恢复系统默认的窗口外观。"""
     if not _IS_WINDOWS or not hwnd:
         return
-    for attr in (_DWMWA_SYSTEMBACKDROP_TYPE,):
-        _dwm_set(hwnd, attr, 0)
-    try:
-        dwmapi = ctypes.WinDLL("dwmapi", use_last_error=True)
-        margins = _MARGINS(0, 0, 0, 0)
-        dwmapi.DwmExtendFrameIntoClientArea(
-            wintypes.HWND(hwnd), ctypes.byref(margins)
-        )
-    except Exception:
-        pass
+    _dwm_set(hwnd, _DWMWA_WINDOW_CORNER_PREFERENCE, _DWMWCP_DONOTROUND)
 
 
 # ---------------------------------------------------------------- 单实例

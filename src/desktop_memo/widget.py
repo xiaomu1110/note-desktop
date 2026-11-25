@@ -22,10 +22,10 @@ from tkinter import font as tkfont
 
 from .config import DEFAULT_HEIGHT, DEFAULT_WIDTH, MIN_HEIGHT, MIN_WIDTH
 from .store import MemoStore
-from .win_layer import enable_mica, mark_as_tool_window
+from .win_layer import enable_mica
 
 # ---------------------------------------------------------------- 配色
-GLASS = "#F4F7FB"          # 云母不可用时的底板色，也是子控件底色
+GLASS = "#F4F7FB"          # 底板色：接近云母玻璃的浅灰蓝
 INK = "#2B3648"            # 正文
 MUTED = "#5F6B7F"          # 标题
 FAINT = "#A3ADBE"          # 次要信息、占位
@@ -34,23 +34,24 @@ BORDER = "#D9E1EC"         # 卡片描边
 DONE_TEXT = "#9AA4B5"      # 已完成条目的文字
 
 CARD_RADIUS = 7            # 圆角半径（96 DPI 基准）：从 15 调小到 7
-# 云母模式下由 DWM 负责裁圆角（DWMWCP_ROUNDSMALL ≈ 4px），
-# 自绘描边要跟着收，否则会出现两条弧线
-MICA_RADIUS = 4
 DRAG_THRESHOLD = 4
 ROW_GAP = 6                # 条目间距
 ROW_H = 22                 # 条目基准高度
 
-# 云母玻璃色调，0xAABBGGRR：AA 是不透明度，后面是 BGR
-MICA_TINT = 0xC8F8F6F4
+# ---------------------------------------------------------------- 云母
+# 关键结论（实测数据，别改回透明色键方案）：
+#
+#   透明色键 + 云母透出      → 文字抗锯齿被关闭，中间灰度占比 55.2% → 0.9%
+#                             字形像素化、边缘锯齿，就是用户看到的重影
+#   不透明底板               → 抗锯齿正常，中间灰度 55.2%，文字清晰
+#
+# Windows 上二者不可兼得：想透出 DWM 合成层就必须用 -transparentcolor 抠图，
+# 抠图会强制关闭文字的 ClearType/抗锯齿。所以这里选择保住文字清晰度，
+# 用不透明底板 + 接近云母的浅灰蓝色模拟玻璃质感。
+#
+# 想验证：DESKTOP_MEMO_NO_MICA 不设时，_apply_mica() 仍会打开 DWM 的
+# 圆角与阴影（不影响内容绘制），但不再抠透明、不再铺 SYSTEMBACKDROP。
 MICA_ENABLED = os.environ.get("DESKTOP_MEMO_NO_MICA") != "1"
-
-# 透明色键：云母生效时，卡片底板用这个颜色，Windows 会把它抠成透明，
-# 从而让 DWM 绘制的云母玻璃露出来。必须选一个正文里绝不会出现的深色。
-# 实测对比（彩边像素数，越小越干净）：
-#   #010101 → 138（最佳）   #00FF00 → 142   #FF00FF → 319   #0000FF → 453
-# 所以用近黑灰，而不是习惯上的洋红。
-MAGIC = "#010101"
 
 FONT_CANDIDATES = ("Microsoft YaHei UI", "微软雅黑", "Microsoft YaHei")
 
@@ -95,6 +96,7 @@ class MemoCard:
         self._scroll = 0.0
         self.mica = False          # 必须在首次 render 之前就存在
         self._hwnd = 0
+        self._closing = False
 
         self.root = tk.Tk()
         self.root.withdraw()
@@ -125,10 +127,27 @@ class MemoCard:
         self.root.deiconify()
         self.root.update_idletasks()
         self._apply_geometry()
-        self._apply_mica()
         # 尺寸定下来之后再画，否则 winfo_width() 还是 1
         self.canvas.update_idletasks()
         self.render()
+        # DWM 的圆角/阴影要等窗口上屏之后再设才生效
+        self._schedule(60, self._apply_mica)
+
+    def _apply_mica(self) -> None:
+        """启用 DWM 圆角与阴影（不影响 Tk 绘制，文字保持抗锯齿）。"""
+        if not MICA_ENABLED:
+            return
+        try:
+            hwnd = int(self.root.wm_frame(), 16)
+        except (ValueError, tk.TclError):
+            hwnd = 0
+        self._hwnd = hwnd
+        if not hwnd:
+            return
+        try:
+            self.mica = enable_mica(hwnd)
+        except Exception:
+            self.mica = False
 
     # ---------------------------------------------------------------- DPI / 几何
 
@@ -168,41 +187,6 @@ class MemoCard:
     def _apply_geometry(self) -> None:
         self.root.geometry(f"{self._w}x{self._h}+{self._x}+{self._y}")
 
-    def _apply_mica(self) -> None:
-        """挂上云母。失败就保持纯色底板，功能完全一致。"""
-        if not MICA_ENABLED:
-            return
-        try:
-            hwnd = int(self.root.wm_frame(), 16)
-        except (ValueError, tk.TclError):
-            hwnd = 0
-        self._hwnd = hwnd
-        if not hwnd:
-            return
-        try:
-            self.mica = enable_mica(hwnd, tint=MICA_TINT)
-        except Exception:
-            self.mica = False
-
-        if self.mica:
-            # 底板改成透明色键，DWM 画的云母才能露出来
-            self.root.configure(bg=MAGIC)
-            self.canvas.configure(bg=MAGIC)
-            try:
-                self.root.wm_attributes("-transparentcolor", MAGIC)
-            except tk.TclError:
-                self.mica = False
-
-        if self.mica:
-            # DwmExtendFrameIntoClientArea 会重置扩展样式，必须把
-            # WS_EX_TOOLWINDOW 补回去，否则卡片会重新出现在任务栏和 Alt+Tab
-            mark_as_tool_window(hwnd)
-
-        if not self.mica:
-            # 云母不可用：退回不透明底板，保证文字可读
-            self.root.configure(bg=GLASS)
-            self.canvas.configure(bg=GLASS)
-
     def _pad(self) -> int:
         return max(8, int(self.PAD * self.s))
 
@@ -227,14 +211,12 @@ class MemoCard:
         self._draw_footer(W, H)
 
     def _draw_backdrop(self, W: int, H: int) -> None:
-        base = MICA_RADIUS if self.mica else CARD_RADIUS
-        r = max(3, int(base * self.s))
+        """画卡片底板：始终是不透明浅色，保证文字有清晰的抗锯齿底。"""
+        r = max(3, int(CARD_RADIUS * self.s))
         pts = _round_points(0.5, 0.5, W - 0.5, H - 0.5, r)
-        if self.mica:
-            # 云母：不填色（填了就挡住合成层），只留一圈很淡的边
-            self.canvas.create_polygon(pts, fill="", outline=BORDER, width=1, tags="bg")
-        else:
-            self.canvas.create_polygon(pts, fill=GLASS, outline=BORDER, width=1, tags="bg")
+        self.canvas.create_polygon(
+            pts, fill=GLASS, outline=BORDER, width=1, tags="bg"
+        )
 
     def _layout_rows(self, W: int, H: int) -> None:
         """按文本宽度把每个条目排成若干行，记录各自的矩形，供点击命中使用。"""
@@ -493,6 +475,9 @@ class MemoCard:
             self.render()
 
     def _schedule(self, ms: int, fn) -> None:  # noqa: ANN001
+        """窗口销毁后 after 回调会抛 TclError，统一在这里吞掉。"""
+        if getattr(self, "_closing", False):
+            return
         try:
             self.root.after(ms, fn)
         except (tk.TclError, RuntimeError):
@@ -609,6 +594,7 @@ class MemoCard:
         self.root.mainloop()
 
     def destroy(self) -> None:
+        self._closing = True
         try:
             self.root.destroy()
         except tk.TclError:
