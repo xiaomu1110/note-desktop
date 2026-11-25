@@ -5,16 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "desktop-memo"
 version = "0.1.0"
-description = "桌面备忘录 —— 一个轻量的本地桌面备忘录工具"
+description = "桌面备忘录 —— 常驻桌面、可拖动的极简便签，零第三方依赖"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "xiaomu", email = "xiaomu2email@gmail.com" }]
-keywords = ["memo", "note", "desktop"]
+keywords = ["memo", "note", "desktop", "sticky-notes"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+    "Environment :: Win32 (MS Windows)",
+    "Operating System :: Microsoft :: Windows",
 ]
+# 运行期不依赖任何第三方包：Tkinter / ctypes / sqlite3 都是标准库
 dependencies = []
 
 [project.optional-dependencies]
@@ -26,8 +28,14 @@ dev = [
 [project.scripts]
 desktop-memo = "desktop_memo.cli:main"
 
+[project.gui-scripts]
+desktop-memo-gui = "desktop_memo.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+desktop_memo = ["assets/*.ico"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
